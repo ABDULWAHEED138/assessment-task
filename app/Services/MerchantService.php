@@ -21,6 +21,20 @@ class MerchantService
     public function register(array $data): Merchant
     {
         // TODO: Complete this method
+        $user = User::query()->create([
+            'name'     => $data['name'],
+            'email'    => $data['email'],
+            'password' => $data['api_key'],
+            'type'     => User::TYPE_MERCHANT
+        ]);
+        /* @var Merchant $merchant */
+        $merchant = Merchant::query()->create([
+            'user_id'      => $user->id,
+            'domain'       => $data['domain'],
+            'display_name' => $data['name']
+        ]);
+
+        return $merchant;
     }
 
     /**
@@ -32,6 +46,11 @@ class MerchantService
     public function updateMerchant(User $user, array $data)
     {
         // TODO: Complete this method
+        $user->merchant()->update([
+            'user_id'      => $user->id,
+            'domain'       => $data['domain'],
+            'display_name' => $data['name']
+        ]);
     }
 
     /**
@@ -44,6 +63,12 @@ class MerchantService
     public function findMerchantByEmail(string $email): ?Merchant
     {
         // TODO: Complete this method
+        /* @var User $user */
+        $user = User::query()->where('email', $email)->first();
+        if ($user) {
+            return $user->merchant;
+        }
+        return NULL;
     }
 
     /**
@@ -56,5 +81,16 @@ class MerchantService
     public function payout(Affiliate $affiliate)
     {
         // TODO: Complete this method
+
+        // Get unpaid orders for the given affiliate
+        $unpaidOrders = Order::where('affiliate_id', $affiliate->id)
+            ->where('payout_status', Order::STATUS_UNPAID)
+            ->get();
+
+        // Process unpaid orders
+        foreach ($unpaidOrders as $order) {
+            // Dispatch PayoutOrderJob for each unpaid order
+            PayoutOrderJob::dispatch($order);
+        }
     }
 }
